@@ -51,7 +51,7 @@ namespace ChallengeDisney.Controllers
 
             if (movie == null)
             {
-                return StatusCode(StatusCodes.Status404NotFound,"The movie entered does not exist.");
+                return StatusCode(StatusCodes.Status404NotFound, "The movie entered does not exist.");
             }
 
             return StatusCode(StatusCodes.Status200OK, movie);
