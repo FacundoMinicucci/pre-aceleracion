@@ -7,6 +7,8 @@ using ChallengeDisney.ViewModels.Genre;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using ChallengeDisney.Interfaces;
+using System.Threading.Tasks;
 
 namespace ChallengeDisney.Controllers
 {
@@ -16,26 +18,25 @@ namespace ChallengeDisney.Controllers
     public class GenreController : ControllerBase
     {
         private readonly ChallengeDisneyContext _challengeDisneyContext;
+        private readonly IApiRepository _repository;
 
-        public GenreController(ChallengeDisneyContext ctx)
+        public GenreController(ChallengeDisneyContext ctx, IApiRepository repository)
         {
             _challengeDisneyContext = ctx;
+            _repository = repository;
         }
 
         [HttpGet]
-        public IActionResult GetGenres()
+        public async Task<IActionResult> GetGenresAsync()
         {
-            return Ok(_challengeDisneyContext.Genres
-                .Select(x => new { Name = x.Name, Image = x.Image })
-                .ToList());
+            var genres = await _repository.GetAllGenresAsync();
+            return Ok(genres.Select(x => new { Image = x.Image, Name = x.Name }));
         }
 
         [HttpGet("details")]
-        public IActionResult GetGenre(int id)
+        public async Task<IActionResult> GetGenre(int id)
         {
-            var genre = _challengeDisneyContext.Genres
-                .Include(x => x.Movies)
-                .FirstOrDefault(x => x.Id == id);            
+            var genre = await _repository.GetGenreByIdAsync(id);        
 
             if (genre == null)
             {
@@ -46,7 +47,7 @@ namespace ChallengeDisney.Controllers
         }
         
         [HttpPost("add")]
-        public IActionResult Post(GenreRequestModel genre)
+        public async Task<IActionResult> Post(GenreRequestModel genre)
         {
             var newGenre = new Genre
             {
@@ -55,8 +56,8 @@ namespace ChallengeDisney.Controllers
             };
 
             if (genre.MovieId != 0)
-            {
-                var movie = _challengeDisneyContext.Movies.FirstOrDefault(x => x.Id == genre.MovieId);
+            {                
+                var movie = await _challengeDisneyContext.Movies.FirstOrDefaultAsync(x => x.Id == genre.MovieId);
 
                 if (movie != null)
                 {
@@ -66,58 +67,63 @@ namespace ChallengeDisney.Controllers
                 }
             }
 
-            _challengeDisneyContext.Genres.Add(newGenre);
+            _repository.Add(newGenre);
 
-            _challengeDisneyContext.SaveChanges();
-
-            return StatusCode(StatusCodes.Status201Created, new GenreResponseModel
+            if (await _repository.SaveAll())
             {
-                Name = newGenre.Name,
-                Image = newGenre.Image
-            });
+                return StatusCode(StatusCodes.Status201Created, new GenreResponseModel
+                {
+                    Name = newGenre.Name,
+                    Image = newGenre.Image
+                });
+            }
+
+            return StatusCode(StatusCodes.Status400BadRequest);
+
+            
         }
 
         [HttpPut("update")]
-        public IActionResult Put(GenreUpdateRequestModel genre)
+        public async Task<IActionResult> Put(GenreUpdateRequestModel genre)
         {
-            var newGenre = _challengeDisneyContext.Genres.FirstOrDefault(x => x.Id == genre.Id);
+            var newGenre = await _repository.GetGenreByIdAsync(genre.Id);
 
-            if (newGenre == null)
-            {
-                return StatusCode(StatusCodes.Status404NotFound, "The genre entered does not exist.");
-            }
-
+            if (newGenre == null) return StatusCode(StatusCodes.Status404NotFound, "The genre entered does not exist.");
+            
             newGenre.Id = genre.Id;
             newGenre.Image = genre.Image;
             newGenre.Name = genre.Name;
 
-            _challengeDisneyContext.Genres.Update(newGenre);
+            _repository.Update(newGenre);
 
-            _challengeDisneyContext.SaveChanges();
-
-            return StatusCode(StatusCodes.Status201Created, new GenreUpdateResponseModel
+            if (await _repository.SaveAll())
             {
-                Id = newGenre.Id,
-                Image = newGenre.Image,
-                Name = newGenre.Name               
-            });
+                return StatusCode(StatusCodes.Status201Created, new GenreUpdateResponseModel
+                {
+                    Id = newGenre.Id,
+                    Image = newGenre.Image,
+                    Name = newGenre.Name
+                });
+            }
+
+            return StatusCode(StatusCodes.Status400BadRequest);            
         }
 
         [HttpDelete("delete")]
-        public IActionResult Delete(int id)
+        public async Task<IActionResult> Delete(int id)
         {
-            var delGenre = _challengeDisneyContext.Genres.Find(id);
+            var delGenre = await _repository.GetGenreByIdAsync(id);
 
-            if(delGenre == null)
+            if(delGenre == null) return StatusCode(StatusCodes.Status404NotFound, "The genre you want to delete does not exist.");
+            
+            _repository.Delete(delGenre);
+
+            if (await _repository.SaveAll())
             {
-                return StatusCode(StatusCodes.Status404NotFound, "The genre you want to delete does not exist.");
-            } 
+                return StatusCode(StatusCodes.Status204NoContent);
+            }            
 
-            _challengeDisneyContext.Genres.Remove(delGenre);
-            _challengeDisneyContext.SaveChanges();
-
-            return StatusCode(StatusCodes.Status204NoContent);
-
+            return StatusCode(StatusCodes.Status400BadRequest);
         }
     }
 }

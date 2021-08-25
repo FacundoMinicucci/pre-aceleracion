@@ -8,6 +8,8 @@ using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using ChallengeDisney.Interfaces;
+using System.Threading.Tasks;
 
 namespace ChallengeDisney.Controllers
 {
@@ -17,24 +19,18 @@ namespace ChallengeDisney.Controllers
     public class MovieController : ControllerBase
     {
         private readonly ChallengeDisneyContext _challengeDisneyContext;
+        private readonly IApiRepository _repository;
 
-        public MovieController(ChallengeDisneyContext ctx)
+        public MovieController(ChallengeDisneyContext ctx, IApiRepository repository)
         {
             _challengeDisneyContext = ctx;
+            _repository = repository;
         }
 
         [HttpGet]
-        public List<Movie> GetMovies(string name, int genreId, string order)
+        public async Task<List<Movie>> GetMovies(string name, int genreId, string order)
         {
-            IQueryable<Movie> list = _challengeDisneyContext.Movies.Include(x => x.Characters);
-
-            if (name != null) list = list.Where(x => x.Title == name);
-
-            if (genreId != 0) list = list.Where(x => x.Genre.Id == genreId);
-
-            if (order == "ASC") list = list.OrderBy(x => x.CreationDate);
-
-            if (order == "DESC") list = list.OrderByDescending(x => x.CreationDate);            
+            var list = await _repository.GetAllMoviesAsync(name, genreId,order);            
 
             return list.Select(x => new Movie
             {
@@ -45,9 +41,9 @@ namespace ChallengeDisney.Controllers
         }                
 
         [HttpGet("details")]        
-        public IActionResult GetMovie(string title)
+        public async Task<IActionResult> GetMovie(string title)
         {
-            var movie = _challengeDisneyContext.Movies.Include(x => x.Characters).Include(x => x.Genre).FirstOrDefault(x => x.Title == title);
+            var movie = await _repository.GetMovieByTitle(title);
 
             if (movie == null)
             {
@@ -58,7 +54,7 @@ namespace ChallengeDisney.Controllers
         }
 
         [HttpPost("add")]
-        public IActionResult Post(MovieRequestModel movie)
+        public async Task<IActionResult> Post(MovieRequestModel movie)
         {
             var newMovie = new Movie
             {
@@ -70,7 +66,7 @@ namespace ChallengeDisney.Controllers
 
             if (movie.GenreId != 0)
             {
-                var genre = _challengeDisneyContext.Genres.FirstOrDefault(x => x.Id == movie.GenreId);
+                var genre = await _challengeDisneyContext.Genres.FirstOrDefaultAsync(x => x.Id == movie.GenreId);
 
                 if (genre != null)
                 {
@@ -82,7 +78,7 @@ namespace ChallengeDisney.Controllers
 
             if (movie.CharacterId != 0)
             {
-                var character = _challengeDisneyContext.Characters.FirstOrDefault(x => x.Id == movie.CharacterId);
+                var character = await _challengeDisneyContext.Characters.FirstOrDefaultAsync(x => x.Id == movie.CharacterId);
 
                 if (character != null)
                 {
@@ -92,25 +88,28 @@ namespace ChallengeDisney.Controllers
                 }
             }
 
-            _challengeDisneyContext.Movies.Add(newMovie);
+            _repository.Add(newMovie);
 
-            _challengeDisneyContext.SaveChanges();
-
-            return StatusCode(StatusCodes.Status201Created, new MovieResponseModel
+            if (await _repository.SaveAll())
             {
-                Image = movie.Image,
-                Title = movie.Title,
-                CreationDate = movie.CreationDate,
-                Qualification = movie.Qualification,
-                GenreId = movie.GenreId
-                
-            });
+                return StatusCode(StatusCodes.Status201Created, new MovieResponseModel
+                {
+                    Image = movie.Image,
+                    Title = movie.Title,
+                    CreationDate = movie.CreationDate,
+                    Qualification = movie.Qualification,
+                    GenreId = movie.GenreId
+
+                });
+            }
+
+            return StatusCode(StatusCodes.Status400BadRequest);            
         }
 
         [HttpPut("update")]
-        public IActionResult Put(MovieUpdateRequestModel movie)
+        public async Task<IActionResult> Put(MovieUpdateRequestModel movie)
         {
-            var newMovie = _challengeDisneyContext.Movies.Include(x => x.Genre).FirstOrDefault(x => x.Id == movie.Id);
+            var newMovie = await _challengeDisneyContext.Movies.Include(x => x.Genre).FirstOrDefaultAsync(x => x.Id == movie.Id);
 
             if (newMovie == null)
             {
@@ -123,36 +122,42 @@ namespace ChallengeDisney.Controllers
             newMovie.Qualification = movie.Qualification;
             newMovie.Genre.Id = movie.GenreId;
 
-            _challengeDisneyContext.Movies.Update(newMovie);
+            _repository.Update(newMovie);
 
-            _challengeDisneyContext.SaveChanges();
-
-            return StatusCode(StatusCodes.Status201Created, new MovieUpdateResponseModel
+            if (await _repository.SaveAll())
             {
-                Id = newMovie.Id,
-                Image = newMovie.Image,
-                Title = newMovie.Title,
-                CreationDate = newMovie.CreationDate,
-                Qualification = newMovie.Qualification,
-                GenreId = newMovie.Genre.Id
-            });
+                return StatusCode(StatusCodes.Status201Created, new MovieUpdateResponseModel
+                {
+                    Id = newMovie.Id,
+                    Image = newMovie.Image,
+                    Title = newMovie.Title,
+                    CreationDate = newMovie.CreationDate,
+                    Qualification = newMovie.Qualification,
+                    GenreId = newMovie.Genre.Id
+                });
+            }
+
+            return StatusCode(StatusCodes.Status400BadRequest);           
         }
 
         [HttpDelete("delete")]
-        public IActionResult Delete(int id)
+        public async Task<IActionResult> Delete(int id)
         {
-            var delMovie = _challengeDisneyContext.Movies.Find(id);
+            var delMovie = await _challengeDisneyContext.Movies.FindAsync(id);
 
             if (delMovie == null)
             {
                 return StatusCode(StatusCodes.Status404NotFound, "The movie you want to delete does not exist.");
             }
 
-            _challengeDisneyContext.Movies.Remove(delMovie);
+            _repository.Delete(delMovie);
 
-            _challengeDisneyContext.SaveChanges();
+            if (await _repository.SaveAll())
+            {
+                return StatusCode(StatusCodes.Status204NoContent);
+            }
 
-            return StatusCode(StatusCodes.Status204NoContent);
+            return StatusCode(StatusCodes.Status400BadRequest);            
         }
     }
 }

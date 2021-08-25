@@ -1,5 +1,7 @@
 using ChallengeDisney.Context;
+using ChallengeDisney.Data;
 using ChallengeDisney.Entities;
+using ChallengeDisney.Interfaces;
 using ChallengeDisney.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -72,6 +74,8 @@ namespace ChallengeDisney
                options.UseInternalServiceProvider(services);
                options.UseSqlServer(Configuration.GetConnectionString("UserConnectionString"));
            });
+
+            services.AddScoped<IApiRepository, ApiRepository>();
 
             services.AddSendGrid(x => x.ApiKey = Configuration["ChallengeDisneyKey"]);
             services.AddTransient<IMailService, SendGridMailService>();

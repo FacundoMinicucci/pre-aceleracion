@@ -8,32 +8,28 @@ using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using ChallengeDisney.Interfaces;
+using System.Threading.Tasks;
 
 namespace ChallengeDisney.Controllers
 {
     [ApiController]
     [Route("characters")]
-    [Authorize]
+    
     public class CharacterController : ControllerBase
     {
-        private readonly ChallengeDisneyContext _challengeDisneyContext;     
-        public CharacterController(ChallengeDisneyContext ctx)
+        private readonly ChallengeDisneyContext _challengeDisneyContext;
+        private readonly IApiRepository _repository;
+        public CharacterController(ChallengeDisneyContext ctx, IApiRepository repository)
         {
             _challengeDisneyContext = ctx;
+            _repository = repository;
         }
 
         [HttpGet]
-        public List<Character> GetCharacters(int movieId, int age, string name, float weight)
+        public async Task<List<Character>> GetCharacters(int movieId, int age, string name, float weight)
         {
-            IQueryable<Character> list = _challengeDisneyContext.Characters.Include(x => x.Movies);
-
-            if(movieId != 0) list = list.Where(x => x.Movies.FirstOrDefault(x => x.Id == movieId) != null);
-
-            if(age != 0) list = list.Where(x => x.Age == age);
-
-            if(name != null) list = list.Where(x => x.Name == name);
-
-            if(weight != 0) list = list.Where(x => x.Weight == weight);
+            var list = await _repository.GetAllCharactersAsync(movieId, age, name, weight);
                                     
             return list.Select(x => new Character 
             {
@@ -43,11 +39,9 @@ namespace ChallengeDisney.Controllers
         }
 
         [HttpGet("details")]        
-        public IActionResult GetCharacter(string name)
-        { 
-            var character = _challengeDisneyContext.Characters
-                .Include(x => x.Movies)                
-                .FirstOrDefault(x => x.Name == name);
+        public async Task<IActionResult> GetCharacter(string name)
+        {
+            var character = await _repository.GetCharacterByName(name);
            
             if (character == null)
             {
@@ -58,7 +52,7 @@ namespace ChallengeDisney.Controllers
         }
 
         [HttpPost("add")]        
-        public IActionResult Post(CharacterRequestModel character)
+        public async Task<IActionResult> Post(CharacterRequestModel character)
         {
             var newCharacter = new Character
             {
@@ -71,7 +65,7 @@ namespace ChallengeDisney.Controllers
             
             if (character.MovieId != 0)
             {
-                var movie = _challengeDisneyContext.Movies.FirstOrDefault(x => x.Id == character.MovieId);
+                var movie = await _challengeDisneyContext.Movies.FirstOrDefaultAsync(x => x.Id == character.MovieId);
 
                 if (movie != null)
                 {                    
@@ -80,27 +74,30 @@ namespace ChallengeDisney.Controllers
                     newCharacter.Movies.Add(movie);                
                 }
             }
-            
-            _challengeDisneyContext.Characters.Add(newCharacter);
 
-            _challengeDisneyContext.SaveChanges();
+            _repository.Add(newCharacter);
 
-            return StatusCode(StatusCodes.Status201Created, new CharacterResponseModel
+            if (await _repository.SaveAll())
             {
-                Id = newCharacter.Id,
-                Name = newCharacter.Name,
-                Image = newCharacter.Image,
-                Age = newCharacter.Age,
-                Weight = newCharacter.Weight,
-                History = newCharacter.History,                
-                MovieId = character.MovieId
-            });
+                return StatusCode(StatusCodes.Status201Created, new CharacterResponseModel
+                {
+                    Id = newCharacter.Id,
+                    Name = newCharacter.Name,
+                    Image = newCharacter.Image,
+                    Age = newCharacter.Age,
+                    Weight = newCharacter.Weight,
+                    History = newCharacter.History,
+                    MovieId = character.MovieId
+                });
+            }
+
+            return StatusCode(StatusCodes.Status400BadRequest);            
         }
 
         [HttpPut("update")]        
-        public IActionResult Put(CharacterUpdateRequestModel character)
+        public async Task<IActionResult> Put(CharacterUpdateRequestModel character)
         {
-            var newCharacter = _challengeDisneyContext.Characters.Include(x => x.Movies).FirstOrDefault(x => x.Id == character.Id);
+            var newCharacter = await _challengeDisneyContext.Characters.Include(x => x.Movies).FirstOrDefaultAsync(x => x.Id == character.Id);
 
             if (newCharacter == null)
             {
@@ -112,39 +109,45 @@ namespace ChallengeDisney.Controllers
             newCharacter.Image = character.Image;
             newCharacter.Age = character.Age;
             newCharacter.Weight = character.Weight;
-            newCharacter.History = character.History;           
+            newCharacter.History = character.History;
 
-            _challengeDisneyContext.Characters.Update(newCharacter);
+            _repository.Update(newCharacter);
 
-            _challengeDisneyContext.SaveChanges();
-
-            return StatusCode(StatusCodes.Status201Created, new CharacterUpdateResponseModel 
+            if (await _repository.SaveAll())
             {
-                Id = character.Id,
-                Name = character.Name,
-                Image = character.Image,
-                Age = character.Age,
-                Weight = character.Weight,
-                History = character.History,
-                MovieId = character.MovieId
-            });
+                return StatusCode(StatusCodes.Status201Created, new CharacterUpdateResponseModel
+                {
+                    Id = character.Id,
+                    Name = character.Name,
+                    Image = character.Image,
+                    Age = character.Age,
+                    Weight = character.Weight,
+                    History = character.History,
+                    MovieId = character.MovieId
+                });
+            }
+
+            return StatusCode(StatusCodes.Status400BadRequest);            
         }
 
         [HttpDelete("delete")]       
-        public IActionResult Delete(int id)
+        public async Task<IActionResult> Delete(int id)
         {
-            var delCharacter = _challengeDisneyContext.Characters.Find(id);
+            var delCharacter = await _challengeDisneyContext.Characters.FindAsync(id);
 
             if (delCharacter == null)
             {
                 return StatusCode(StatusCodes.Status404NotFound, "The character you want to delete does not exist.");
             }
 
-            _challengeDisneyContext.Characters.Remove(delCharacter);
+            _repository.Delete(delCharacter);
 
-            _challengeDisneyContext.SaveChanges();
+            if (await _repository.SaveAll())
+            {
+                return StatusCode(StatusCodes.Status204NoContent);
+            }
 
-            return StatusCode(StatusCodes.Status204NoContent);
+            return StatusCode(StatusCodes.Status400BadRequest);            
         }
     }
 }

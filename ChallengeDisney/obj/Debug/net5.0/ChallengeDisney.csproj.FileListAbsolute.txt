@@ -70,3 +70,4 @@ C:\Users\facun\source\repos\ChallengeDisney\bin\Debug\net5.0\Microsoft.AspNetCor
 C:\Users\facun\source\repos\ChallengeDisney\bin\Debug\net5.0\SendGrid.dll
 C:\Users\facun\source\repos\ChallengeDisney\bin\Debug\net5.0\SendGrid.Extensions.DependencyInjection.dll
 C:\Users\facun\source\repos\ChallengeDisney\bin\Debug\net5.0\StarkbankEcdsa.dll
+C:\Users\facun\source\repos\ChallengeDisney\obj\Debug\net5.0\ChallengeDisney.csproj.AssemblyReference.cache
