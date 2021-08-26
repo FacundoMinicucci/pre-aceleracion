@@ -12,8 +12,6 @@ namespace ChallengeDisney.Interfaces
 
         public void Update<T>(T entity) where T : class;
 
-        Task<bool> SaveAll();
-
         Task<IEnumerable<Genre>> GetAllGenresAsync();
 
         Task<Genre> GetGenreByIdAsync(int id);
@@ -24,6 +22,6 @@ namespace ChallengeDisney.Interfaces
 
         Task<IEnumerable<Character>> GetAllCharactersAsync(int movieId, int age, string name, float weight);
 
-        Task<Character> GetCharacterByName(string name);        
+        Task<Character> GetCharacterByName(string name);
     }
 }

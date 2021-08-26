@@ -10,26 +10,27 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using ChallengeDisney.Interfaces;
 using System.Threading.Tasks;
+using ChallengeDisney.Data.UnitOfWork;
 
 namespace ChallengeDisney.Controllers
 {
     [ApiController]
     [Route("characters")]
-    
+    //[Authorize]
     public class CharacterController : ControllerBase
     {
         private readonly ChallengeDisneyContext _challengeDisneyContext;
-        private readonly IApiRepository _repository;
-        public CharacterController(ChallengeDisneyContext ctx, IApiRepository repository)
+        private readonly IUnitOfWork _unitOfWork;
+        public CharacterController(ChallengeDisneyContext ctx, IUnitOfWork unitOfWork)
         {
             _challengeDisneyContext = ctx;
-            _repository = repository;
+            _unitOfWork = unitOfWork;
         }
 
         [HttpGet]
         public async Task<List<Character>> GetCharacters(int movieId, int age, string name, float weight)
         {
-            var list = await _repository.GetAllCharactersAsync(movieId, age, name, weight);
+            var list = await _unitOfWork.ApiRepository.GetAllCharactersAsync(movieId, age, name, weight);
                                     
             return list.Select(x => new Character 
             {
@@ -41,7 +42,7 @@ namespace ChallengeDisney.Controllers
         [HttpGet("details")]        
         public async Task<IActionResult> GetCharacter(string name)
         {
-            var character = await _repository.GetCharacterByName(name);
+            var character = await _unitOfWork.ApiRepository.GetCharacterByName(name);
            
             if (character == null)
             {
@@ -75,23 +76,20 @@ namespace ChallengeDisney.Controllers
                 }
             }
 
-            _repository.Add(newCharacter);
+            _unitOfWork.ApiRepository.Add(newCharacter);
 
-            if (await _repository.SaveAll())
+            await _unitOfWork.SaveChangesAsync();
+
+            return StatusCode(StatusCodes.Status201Created, new CharacterResponseModel
             {
-                return StatusCode(StatusCodes.Status201Created, new CharacterResponseModel
-                {
-                    Id = newCharacter.Id,
-                    Name = newCharacter.Name,
-                    Image = newCharacter.Image,
-                    Age = newCharacter.Age,
-                    Weight = newCharacter.Weight,
-                    History = newCharacter.History,
-                    MovieId = character.MovieId
-                });
-            }
-
-            return StatusCode(StatusCodes.Status400BadRequest);            
+                Id = newCharacter.Id,
+                Name = newCharacter.Name,
+                Image = newCharacter.Image,
+                Age = newCharacter.Age,
+                Weight = newCharacter.Weight,
+                History = newCharacter.History,
+                MovieId = character.MovieId
+            });
         }
 
         [HttpPut("update")]        
@@ -111,23 +109,20 @@ namespace ChallengeDisney.Controllers
             newCharacter.Weight = character.Weight;
             newCharacter.History = character.History;
 
-            _repository.Update(newCharacter);
+            _unitOfWork.ApiRepository.Update(newCharacter);
 
-            if (await _repository.SaveAll())
+            await _unitOfWork.SaveChangesAsync();
+
+            return StatusCode(StatusCodes.Status201Created, new CharacterUpdateResponseModel
             {
-                return StatusCode(StatusCodes.Status201Created, new CharacterUpdateResponseModel
-                {
-                    Id = character.Id,
-                    Name = character.Name,
-                    Image = character.Image,
-                    Age = character.Age,
-                    Weight = character.Weight,
-                    History = character.History,
-                    MovieId = character.MovieId
-                });
-            }
-
-            return StatusCode(StatusCodes.Status400BadRequest);            
+                Id = character.Id,
+                Name = character.Name,
+                Image = character.Image,
+                Age = character.Age,
+                Weight = character.Weight,
+                History = character.History,
+                MovieId = character.MovieId
+            });                      
         }
 
         [HttpDelete("delete")]       
@@ -140,14 +135,11 @@ namespace ChallengeDisney.Controllers
                 return StatusCode(StatusCodes.Status404NotFound, "The character you want to delete does not exist.");
             }
 
-            _repository.Delete(delCharacter);
+            _unitOfWork.ApiRepository.Delete(delCharacter);
 
-            if (await _repository.SaveAll())
-            {
-                return StatusCode(StatusCodes.Status204NoContent);
-            }
-
-            return StatusCode(StatusCodes.Status400BadRequest);            
+            await _unitOfWork.SaveChangesAsync();
+           
+            return StatusCode(StatusCodes.Status204NoContent);                       
         }
     }
 }

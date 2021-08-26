@@ -1,5 +1,6 @@
 using ChallengeDisney.Context;
 using ChallengeDisney.Data;
+using ChallengeDisney.Data.UnitOfWork;
 using ChallengeDisney.Entities;
 using ChallengeDisney.Interfaces;
 using ChallengeDisney.Services;
@@ -76,6 +77,7 @@ namespace ChallengeDisney
            });
 
             services.AddScoped<IApiRepository, ApiRepository>();
+            services.AddScoped<IUnitOfWork, UnitOfWork>();
 
             services.AddSendGrid(x => x.ApiKey = Configuration["ChallengeDisneyKey"]);
             services.AddTransient<IMailService, SendGridMailService>();

@@ -9,34 +9,35 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using ChallengeDisney.Interfaces;
 using System.Threading.Tasks;
+using ChallengeDisney.Data.UnitOfWork;
 
 namespace ChallengeDisney.Controllers
 {
     [ApiController]
     [Route("genres")]
-    [Authorize]
+    //[Authorize]
     public class GenreController : ControllerBase
     {
         private readonly ChallengeDisneyContext _challengeDisneyContext;
-        private readonly IApiRepository _repository;
+        private readonly IUnitOfWork _unitOfWork;
 
-        public GenreController(ChallengeDisneyContext ctx, IApiRepository repository)
+        public GenreController(ChallengeDisneyContext ctx, IUnitOfWork unitOfWork)
         {
             _challengeDisneyContext = ctx;
-            _repository = repository;
+            _unitOfWork = unitOfWork;
         }
 
         [HttpGet]
         public async Task<IActionResult> GetGenresAsync()
         {
-            var genres = await _repository.GetAllGenresAsync();
+            var genres = await _unitOfWork.ApiRepository.GetAllGenresAsync();
             return Ok(genres.Select(x => new { Image = x.Image, Name = x.Name }));
         }
 
         [HttpGet("details")]
         public async Task<IActionResult> GetGenre(int id)
         {
-            var genre = await _repository.GetGenreByIdAsync(id);        
+            var genre = await _unitOfWork.ApiRepository.GetGenreByIdAsync(id);        
 
             if (genre == null)
             {
@@ -67,26 +68,21 @@ namespace ChallengeDisney.Controllers
                 }
             }
 
-            _repository.Add(newGenre);
+            _unitOfWork.ApiRepository.Add(newGenre);
 
-            if (await _repository.SaveAll())
-            {
-                return StatusCode(StatusCodes.Status201Created, new GenreResponseModel
-                {
-                    Name = newGenre.Name,
-                    Image = newGenre.Image
-                });
-            }
+            await _unitOfWork.SaveChangesAsync();
 
-            return StatusCode(StatusCodes.Status400BadRequest);
-
-            
+             return StatusCode(StatusCodes.Status201Created, new GenreResponseModel
+             {
+                 Name = newGenre.Name,
+                 Image = newGenre.Image
+             });                        
         }
 
         [HttpPut("update")]
         public async Task<IActionResult> Put(GenreUpdateRequestModel genre)
         {
-            var newGenre = await _repository.GetGenreByIdAsync(genre.Id);
+            var newGenre = await _unitOfWork.ApiRepository.GetGenreByIdAsync(genre.Id);
 
             if (newGenre == null) return StatusCode(StatusCodes.Status404NotFound, "The genre entered does not exist.");
             
@@ -94,36 +90,32 @@ namespace ChallengeDisney.Controllers
             newGenre.Image = genre.Image;
             newGenre.Name = genre.Name;
 
-            _repository.Update(newGenre);
+            _unitOfWork.ApiRepository.Update(newGenre);
 
-            if (await _repository.SaveAll())
+            await _unitOfWork.SaveChangesAsync();
+
+            return StatusCode(StatusCodes.Status201Created, new GenreUpdateResponseModel
             {
-                return StatusCode(StatusCodes.Status201Created, new GenreUpdateResponseModel
-                {
-                    Id = newGenre.Id,
-                    Image = newGenre.Image,
-                    Name = newGenre.Name
-                });
-            }
-
-            return StatusCode(StatusCodes.Status400BadRequest);            
+                Id = newGenre.Id,
+                Image = newGenre.Image,
+                Name = newGenre.Name
+            });                      
         }
 
         [HttpDelete("delete")]
         public async Task<IActionResult> Delete(int id)
         {
-            var delGenre = await _repository.GetGenreByIdAsync(id);
+            var delGenre = await _unitOfWork.ApiRepository.GetGenreByIdAsync(id);
 
             if(delGenre == null) return StatusCode(StatusCodes.Status404NotFound, "The genre you want to delete does not exist.");
+
+            _unitOfWork.ApiRepository.Delete(delGenre);
+
+            await _unitOfWork.SaveChangesAsync();
             
-            _repository.Delete(delGenre);
+            return StatusCode(StatusCodes.Status204NoContent);           
 
-            if (await _repository.SaveAll())
-            {
-                return StatusCode(StatusCodes.Status204NoContent);
-            }            
-
-            return StatusCode(StatusCodes.Status400BadRequest);
+           
         }
     }
 }

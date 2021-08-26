@@ -62,7 +62,7 @@ namespace ChallengeDisney.Data
 
             if (order == "DESC") list = list.OrderByDescending(x => x.CreationDate);            
 
-            return list;
+            return await list.ToListAsync();
         }
 
         public async Task<Movie> GetMovieByTitle(string title)
@@ -84,7 +84,7 @@ namespace ChallengeDisney.Data
 
             if (weight != 0) list = list.Where(x => x.Weight == weight);
 
-            return list;
+            return await list.ToListAsync();
         }
 
         public async Task<Character> GetCharacterByName(string name)
@@ -94,12 +94,6 @@ namespace ChallengeDisney.Data
                 .FirstOrDefaultAsync(x => x.Name == name);
 
             return character;
-        }
-
-        public async Task<bool> SaveAll()
-        {
-            return await _context.SaveChangesAsync() > 0;
-        }
-
+        }        
     }
 }
