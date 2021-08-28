@@ -1,8 +1,5 @@
 ﻿using ChallengeDisney.Context;
-using ChallengeDisney.Interfaces;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace ChallengeDisney.Data.UnitOfWork
@@ -48,9 +45,9 @@ namespace ChallengeDisney.Data.UnitOfWork
             GC.SuppressFinalize(this);
         }
 
-        public async Task SaveChangesAsync()
+        public async Task<bool> SaveChangesAsync()
         {
-           await _context.SaveChangesAsync();
+           return await _context.SaveChangesAsync() > 0;
         }
     }
 }

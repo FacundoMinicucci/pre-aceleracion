@@ -16,7 +16,7 @@ namespace ChallengeDisney.Controllers
 {
     [ApiController]
     [Route("movies")]
-    //[Authorize]
+    [Authorize]
     public class MovieController : ControllerBase
     {
         private readonly ChallengeDisneyContext _challengeDisneyContext;
@@ -55,6 +55,7 @@ namespace ChallengeDisney.Controllers
         }
 
         [HttpPost("add")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Post(MovieRequestModel movie)
         {
             var newMovie = new Movie
@@ -91,19 +92,23 @@ namespace ChallengeDisney.Controllers
 
             _unitOfWork.ApiRepository.Add(newMovie);
 
-            await _unitOfWork.SaveChangesAsync();
-           
-            return StatusCode(StatusCodes.Status201Created, new MovieResponseModel
+            if (await _unitOfWork.SaveChangesAsync())
             {
-                Image = movie.Image,
-                Title = movie.Title,
-                CreationDate = movie.CreationDate,
-                Qualification = movie.Qualification,
-                GenreId = movie.GenreId
-            });                      
+                return StatusCode(StatusCodes.Status201Created, new MovieResponseModel
+                {
+                    Image = movie.Image,
+                    Title = movie.Title,
+                    CreationDate = movie.CreationDate,
+                    Qualification = movie.Qualification,
+                    GenreId = movie.GenreId
+                });
+            }
+
+            return BadRequest();                          
         }
 
         [HttpPut("update")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Put(MovieUpdateRequestModel movie)
         {
             var newMovie = await _challengeDisneyContext.Movies.Include(x => x.Genre).FirstOrDefaultAsync(x => x.Id == movie.Id);
@@ -121,20 +126,24 @@ namespace ChallengeDisney.Controllers
 
             _unitOfWork.ApiRepository.Update(newMovie);
 
-            await _unitOfWork.SaveChangesAsync();
-
-            return StatusCode(StatusCodes.Status201Created, new MovieUpdateResponseModel
+            if (await _unitOfWork.SaveChangesAsync())
             {
-                Id = newMovie.Id,
-                Image = newMovie.Image,
-                Title = newMovie.Title,
-                CreationDate = newMovie.CreationDate,
-                Qualification = newMovie.Qualification,
-                GenreId = newMovie.Genre.Id
-            });                    
+                return StatusCode(StatusCodes.Status201Created, new MovieUpdateResponseModel
+                {
+                    Id = newMovie.Id,
+                    Image = newMovie.Image,
+                    Title = newMovie.Title,
+                    CreationDate = newMovie.CreationDate,
+                    Qualification = newMovie.Qualification,
+                    GenreId = newMovie.Genre.Id
+                });
+            }
+
+            return BadRequest();                         
         }
 
         [HttpDelete("delete")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)
         {
             var delMovie = await _challengeDisneyContext.Movies.FindAsync(id);
@@ -146,9 +155,12 @@ namespace ChallengeDisney.Controllers
 
             _unitOfWork.ApiRepository.Delete(delMovie);
 
-            await _unitOfWork.SaveChangesAsync();
-            
-            return StatusCode(StatusCodes.Status204NoContent);                       
+            if (await _unitOfWork.SaveChangesAsync())
+            {
+                return StatusCode(StatusCodes.Status204NoContent);
+            }
+
+            return BadRequest();                                  
         }
     }
 }

@@ -16,7 +16,7 @@ namespace ChallengeDisney.Controllers
 {
     [ApiController]
     [Route("characters")]
-    //[Authorize]
+    [Authorize]
     public class CharacterController : ControllerBase
     {
         private readonly ChallengeDisneyContext _challengeDisneyContext;
@@ -52,7 +52,8 @@ namespace ChallengeDisney.Controllers
             return StatusCode(StatusCodes.Status200OK, character);
         }
 
-        [HttpPost("add")]        
+        [HttpPost("add")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Post(CharacterRequestModel character)
         {
             var newCharacter = new Character
@@ -67,7 +68,7 @@ namespace ChallengeDisney.Controllers
             if (character.MovieId != 0)
             {
                 var movie = await _challengeDisneyContext.Movies.FirstOrDefaultAsync(x => x.Id == character.MovieId);
-
+                
                 if (movie != null)
                 {                    
                     if (newCharacter.Movies == null) newCharacter.Movies = new List<Movie>();
@@ -78,21 +79,25 @@ namespace ChallengeDisney.Controllers
 
             _unitOfWork.ApiRepository.Add(newCharacter);
 
-            await _unitOfWork.SaveChangesAsync();
-
-            return StatusCode(StatusCodes.Status201Created, new CharacterResponseModel
+            if (await _unitOfWork.SaveChangesAsync())
             {
-                Id = newCharacter.Id,
-                Name = newCharacter.Name,
-                Image = newCharacter.Image,
-                Age = newCharacter.Age,
-                Weight = newCharacter.Weight,
-                History = newCharacter.History,
-                MovieId = character.MovieId
-            });
+                return StatusCode(StatusCodes.Status201Created, new CharacterResponseModel
+                {
+                    Id = newCharacter.Id,
+                    Name = newCharacter.Name,
+                    Image = newCharacter.Image,
+                    Age = newCharacter.Age,
+                    Weight = newCharacter.Weight,
+                    History = newCharacter.History,
+                    MovieId = character.MovieId
+                });
+            }
+
+            return BadRequest();            
         }
 
-        [HttpPut("update")]        
+        [HttpPut("update")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Put(CharacterUpdateRequestModel character)
         {
             var newCharacter = await _challengeDisneyContext.Characters.Include(x => x.Movies).FirstOrDefaultAsync(x => x.Id == character.Id);
@@ -111,21 +116,25 @@ namespace ChallengeDisney.Controllers
 
             _unitOfWork.ApiRepository.Update(newCharacter);
 
-            await _unitOfWork.SaveChangesAsync();
-
-            return StatusCode(StatusCodes.Status201Created, new CharacterUpdateResponseModel
+            if (await _unitOfWork.SaveChangesAsync())
             {
-                Id = character.Id,
-                Name = character.Name,
-                Image = character.Image,
-                Age = character.Age,
-                Weight = character.Weight,
-                History = character.History,
-                MovieId = character.MovieId
-            });                      
+                return StatusCode(StatusCodes.Status201Created, new CharacterUpdateResponseModel
+                {
+                    Id = character.Id,
+                    Name = character.Name,
+                    Image = character.Image,
+                    Age = character.Age,
+                    Weight = character.Weight,
+                    History = character.History,
+                    MovieId = character.MovieId
+                });
+            }
+
+            return BadRequest();              
         }
 
-        [HttpDelete("delete")]       
+        [HttpDelete("delete")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)
         {
             var delCharacter = await _challengeDisneyContext.Characters.FindAsync(id);
@@ -137,9 +146,12 @@ namespace ChallengeDisney.Controllers
 
             _unitOfWork.ApiRepository.Delete(delCharacter);
 
-            await _unitOfWork.SaveChangesAsync();
-           
-            return StatusCode(StatusCodes.Status204NoContent);                       
+            if (await _unitOfWork.SaveChangesAsync())
+            {
+                return StatusCode(StatusCodes.Status204NoContent);
+            }
+
+            return BadRequest();                                  
         }
     }
 }

@@ -15,7 +15,7 @@ namespace ChallengeDisney.Controllers
 {
     [ApiController]
     [Route("genres")]
-    //[Authorize]
+    [Authorize]
     public class GenreController : ControllerBase
     {
         private readonly ChallengeDisneyContext _challengeDisneyContext;
@@ -48,6 +48,7 @@ namespace ChallengeDisney.Controllers
         }
         
         [HttpPost("add")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Post(GenreRequestModel genre)
         {
             var newGenre = new Genre
@@ -70,16 +71,20 @@ namespace ChallengeDisney.Controllers
 
             _unitOfWork.ApiRepository.Add(newGenre);
 
-            await _unitOfWork.SaveChangesAsync();
+            if (await _unitOfWork.SaveChangesAsync())
+            {
+                return StatusCode(StatusCodes.Status201Created, new GenreResponseModel
+                {
+                    Name = newGenre.Name,
+                    Image = newGenre.Image
+                });
+            }
 
-             return StatusCode(StatusCodes.Status201Created, new GenreResponseModel
-             {
-                 Name = newGenre.Name,
-                 Image = newGenre.Image
-             });                        
+            return BadRequest();                             
         }
 
         [HttpPut("update")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Put(GenreUpdateRequestModel genre)
         {
             var newGenre = await _unitOfWork.ApiRepository.GetGenreByIdAsync(genre.Id);
@@ -92,17 +97,21 @@ namespace ChallengeDisney.Controllers
 
             _unitOfWork.ApiRepository.Update(newGenre);
 
-            await _unitOfWork.SaveChangesAsync();
-
-            return StatusCode(StatusCodes.Status201Created, new GenreUpdateResponseModel
+            if (await _unitOfWork.SaveChangesAsync())
             {
-                Id = newGenre.Id,
-                Image = newGenre.Image,
-                Name = newGenre.Name
-            });                      
+                return StatusCode(StatusCodes.Status201Created, new GenreUpdateResponseModel
+                {
+                    Id = newGenre.Id,
+                    Image = newGenre.Image,
+                    Name = newGenre.Name
+                });
+            }
+
+            return BadRequest();                          
         }
 
         [HttpDelete("delete")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)
         {
             var delGenre = await _unitOfWork.ApiRepository.GetGenreByIdAsync(id);
@@ -111,11 +120,12 @@ namespace ChallengeDisney.Controllers
 
             _unitOfWork.ApiRepository.Delete(delGenre);
 
-            await _unitOfWork.SaveChangesAsync();
-            
-            return StatusCode(StatusCodes.Status204NoContent);           
+            if (await _unitOfWork.SaveChangesAsync())
+            {
+                return StatusCode(StatusCodes.Status204NoContent);
+            }
 
-           
+            return BadRequest();           
         }
     }
 }

@@ -11,7 +11,6 @@ namespace ChallengeDisney.Data.UnitOfWork
     {
         ApiRepository ApiRepository { get; }
         
-        Task SaveChangesAsync();
-
+        Task<bool> SaveChangesAsync();
     }
 }
